@@ -18,7 +18,6 @@ class map_align:
         _, img = cv.threshold(img, 200, 255, cv.THRESH_BINARY)
         img = cv.morphologyEx(img, cv.MORPH_DILATE, self._k5)
         img = cv.Canny(img, 100, 200)
-        img = cv.floodFill(img, img, (5, 5), 255)
         cv.imwrite("edges.jpg", img)
         return img
 
@@ -117,9 +116,22 @@ class map_align:
 
         return mapReg, h
 
+    def get_roi(self, map, query):
+        w, h = query.shape[::-1]
+        method = eval('cv.TM_CCOEFF_NORMED')
+
+        res = cv.matchTemplate(map,query,method)
+        min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
+        top_left = max_loc
+        bottom_right = (top_left[0] + w, top_left[1] + h)
+        roi = cv.cvtColor(map, cv.COLOR_GRAY2RGB)
+        cv.rectangle(roi, top_left, bottom_right, (255, 0, 0), 2)
+        cv.imwrite('roi.jpg', roi)
+        return map[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
 if __name__ == '__main__':
 
-    img_path = './images/slam_map_loop_1.png'
+    img_path = './images/slam_map_full.png'
     map_mask_path = './images/map_mask_2.png'
     img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
     map_mask = cv.imread(map_mask_path, cv.IMREAD_GRAYSCALE)
@@ -128,15 +140,12 @@ if __name__ == '__main__':
     edges = align.edges(img)
     img_lines = align.preproc(img)
     approx = align.approximate(img_lines)
-    # sift_img = align.sift_match(map_mask, img_lines)
-    mapReg, h = align.registration(img_lines, map_mask);
+    
+    
+    roi = align.get_roi(map_mask, img_lines)
+    sift_img = align.sift_match(roi, img_lines)
+    mapReg, h = align.registration(img_lines, roi);
     print(h)
-    # plt.imshow(mapReg, 'gray')
 
-    # plt.subplot(1, 2, 1)
-    # plt.imshow(img, 'gray')
-    # plt.subplot(1, 2, 2)
-    # plt.imshow(img_lines, 'gray')
-    # plt.subplot(1, 3, 3)
-    # plt.imshow(sift_img, 'gray')
-    # plt.show()
+    plt.imshow(mapReg, 'gray')
+    plt.show()
